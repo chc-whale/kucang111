@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>智能上架 - PDA版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #1a3e4c;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .touch-area {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(135deg, #1a3e4c 0%, #0f2c36 100%);
+            position: relative;
+            cursor: pointer;
+        }
+
+        /* 点击波纹效果 */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            transform: scale(0);
+            animation: ripple-animation 0.4s ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-animation {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        .status-bar {
+            background: rgba(0,0,0,0.3);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #28a745;
+            box-shadow: 0 0 5px #28a745;
+        }
+
+        .sync-dot.error {
+            background: #dc3545;
+        }
+
+        /* 原点位显示 */
+        .origin-area {
+            background: rgba(0,0,0,0.3);
+            margin: 16px 20px 0 20px;
+            padding: 10px 16px;
+            border-radius: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .origin-label {
+            font-size: 12px;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .origin-value {
+            font-size: 14px;
+            font-weight: bold;
+            color: #ffc107;
+            font-family: monospace;
+        }
+
+        .origin-reset {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        /* 进度区域 */
+        .progress-area {
+            background: rgba(0,0,0,0.3);
+            margin: 10px 20px;
+            padding: 10px 20px;
+            border-radius: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .progress-number {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffc107;
+        }
+
+        /* 推荐库位区域 */
+        .recommend-area {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .recommend-label {
+            font-size: 18px;
+            color: rgba(255,255,255,0.6);
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .recommend-code {
+            font-size: 72px;
+            font-weight: bold;
+            color: #ffc107;
+            background: rgba(0,0,0,0.3);
+            padding: 30px 50px;
+            border-radius: 80px;
+            letter-spacing: 6px;
+            font-family: monospace;
+            word-break: break-all;
+            text-align: center;
+        }
+
+        .recommend-priority {
+            margin-top: 20px;
+            font-size: 16px;
+            color: rgba(255,255,255,0.5);
+        }
+
+        .footer-tip {
+            text-align: center;
+            padding: 16px;
+            color: rgba(255,255,255,0.4);
+            font-size: 12px;
+        }
+
+        /* 弹窗 */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 32px;
+            padding: 32px 24px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .modal-content h3 {
+            font-size: 24px;
+            color: #1a3e4c;
+            margin-bottom: 8px;
+        }
+
+        .modal-content p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 16px;
+            font-size: 20px;
+            text-align: center;
+            font-family: monospace;
+            border: 2px solid #ddd;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            letter-spacing: 2px;
+        }
+
+        .modal-content input:focus {
+            outline: none;
+            border-color: #1e6f5c;
+        }
+
+        .modal-content button {
+            width: 100%;
+            padding: 14px;
+            background: #1e6f5c;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .modal-content button.secondary {
+            background: #6c757d;
+            margin-top: 12px;
+        }
+
+        .modal-content button.danger {
+            background: #dc3545;
+            margin-top: 12px;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            z-index: 1001;
+            display: none;
+        }
+
+        /* 完成页面 */
+        .complete-area {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .complete-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .complete-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .complete-message {
+            font-size: 16px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .reset-complete-btn {
+            margin-top: 30px;
+            padding: 12px 30px;
+            background: #ffc107;
+            color: #333;
+            border: none;
+            border-radius: 40px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://res.wx.qq.com/open/js/cloudbase/1.1.0/cloud.js"></script>
+</head>
+<body>
+
+<div class="loading" id="loading">⏳ 同步中...</div>
+
+<div class="touch-area" id="touchArea">
+    <div class="status-bar">
+        <div class="sync-status" id="syncStatus">
+            <span class="sync-dot" id="syncDot"></span>
+            <span id="syncText">连接中...</span>
+        </div>
+        <div id="statsText">加载中...</div>
+    </div>
+
+    <!-- 原点位显示区域 -->
+    <div class="origin-area" id="originArea">
+        <span class="origin-label">📍 原点位</span>
+        <span class="origin-value" id="originValue">未设置</span>
+        <button class="origin-reset" onclick="showOriginModal()">设置/修改</button>
+    </div>
+
+    <!-- 进度区域 -->
+    <div class="progress-area" id="progressArea">
+        <span class="progress-text">📊 上架进度</span>
+        <span class="progress-number" id="progressText">0 / 0</span>
+    </div>
+
+    <!-- 动态内容区域 -->
+    <div id="dynamicArea"></div>
+
+    <div class="footer-tip">
+        👆 触摸屏幕任意位置 → 确认上架 → 自动跳转下一个
+    </div>
+</div>
+
+<!-- 原点位设置弹窗 -->
+<div id="originModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>📍 设置原点位</h3>
+        <p>扫码或输入您当前所在的库位码<br>系统将从该库位的下一个开始推荐</p>
+        <input type="text" id="originCodeInput" placeholder="例如: LSYW16" autocomplete="off">
+        <button onclick="setOrigin()">确认设置</button>
+        <button class="secondary" onclick="closeOriginModal()">取消</button>
+        <button class="danger" onclick="clearOriginAndReset()">清除原点位</button>
+    </div>
+</div>
+
+<!-- 完成弹窗 -->
+<div id="completeModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>🎉 恭喜！</h3>
+        <p id="completeMessage">所有库位已完成上架</p>
+        <button onclick="resetFromComplete()">重新开始</button>
+        <button class="secondary" onclick="closeCompleteModal()">关闭</button>
+    </div>
+</div>
+
+<script>
+// ===== 请替换成你的腾讯云开发环境ID =====
+const ENV_ID = "kucang-5gtw04vlb8f04c39;
+// ===================================
+
+let allLocations = [];      // 所有库位 [{code, priority}]
+let originLocation = null;   // 原点位（用户设置的起点）
+let currentIndex = 0;        // 当前推荐索引
+let app = null;
+let db = null;
+
+// 初始化
+async function initCloud() {
+    showLoading(true);
+    try {
+        app = cloudbase.init({ env: ENV_ID });
+        await app.auth().signInAnonymously();
+        db = app.database();
+        updateSyncStatus(true, '已连接');
+        await loadLocations();
+    } catch(e) {
+        console.error(e);
+        updateSyncStatus(false, '连接失败');
+        loadFromLocal();
+    }
+    showLoading(false);
+}
+
+// 加载库位数据
+async function loadLocations() {
+    showLoading(true);
+    try {
+        const res = await db.collection('locations').get();
+        allLocations = res.data.map(item => ({ code: item.code, priority: item.priority }));
+        allLocations.sort((a, b) => a.priority - b.priority);
+        saveToLocal();
+        updateStats();
+        updateSyncStatus(true, `已同步 ${allLocations.length} 个库位`);
+        
+        // 恢复原点位和进度
+        restoreOrigin();
+        calculateCurrentIndex();
+        updateDisplay();
+    } catch(e) {
+        console.error(e);
+        updateSyncStatus(false, '同步失败，使用缓存');
+        loadFromLocal();
+        restoreOrigin();
+        calculateCurrentIndex();
+        updateDisplay();
+    }
+    showLoading(false);
+}
+
+// 本地缓存
+function saveToLocal() {
+    localStorage.setItem('locations_putaway', JSON.stringify(allLocations));
+}
+
+function loadFromLocal() {
+    const saved = localStorage.getItem('locations_putaway');
+    if (saved) {
+        allLocations = JSON.parse(saved);
+        updateStats();
+    }
+}
+
+// 原点位存储
+function saveOrigin() {
+    if (originLocation) {
+        localStorage.setItem('putaway_origin', originLocation);
+    } else {
+        localStorage.removeItem('putaway_origin');
+    }
+}
+
+function restoreOrigin() {
+    const saved = localStorage.getItem('putaway_origin');
+    if (saved && allLocations.find(l => l.code === saved)) {
+        originLocation = saved;
+    } else {
+        originLocation = null;
+    }
+    updateOriginDisplay();
+}
+
+function updateOriginDisplay() {
+    const originValue = document.getElementById('originValue');
+    if (originLocation) {
+        originValue.innerHTML = originLocation;
+    } else {
+        originValue.innerHTML = '未设置(从第1个开始)';
+    }
+}
+
+// 根据原点位计算当前推荐索引
+function calculateCurrentIndex() {
+    if (allLocations.length === 0) {
+        currentIndex = 0;
+        return;
+    }
+    
+    if (originLocation) {
+        // 找到原点位的索引
+        const originIndex = allLocations.findIndex(l => l.code === originLocation);
+        if (originIndex !== -1) {
+            // 从原点位的下一个开始推荐
+            currentIndex = originIndex + 1;
+        } else {
+            // 原点位不存在，从第一个开始
+            currentIndex = 0;
+            originLocation = null;
+            saveOrigin();
+            updateOriginDisplay();
+        }
+    } else {
+        // 无原点位，从第一个开始
+        currentIndex = 0;
+    }
+    
+    // 边界检查：如果已经完成，显示完成界面
+    if (currentIndex >= allLocations.length) {
+        currentIndex = allLocations.length;
+    }
+    
+    // 保存进度
+    saveProgress();
+}
+
+// 确认上架当前库位，跳转到下一个
+function confirmAndNext() {
+    if (currentIndex >= allLocations.length) {
+        showCompleteModal();
+        return;
+    }
+    
+    // 触感反馈
+    if (navigator.vibrate) {
+        navigator.vibrate(50);
+    }
+    
+    // 添加点击波纹效果
+    addRipple(event);
+    
+    // 移动到下一个
+    currentIndex++;
+    saveProgress();
+    updateDisplay();
+}
+
+// 保存当前进度
+function saveProgress() {
+    localStorage.setItem('putaway_current_index', currentIndex);
+}
+
+// 恢复进度
+function restoreProgress() {
+    const saved = localStorage.getItem('putaway_current_index');
+    if (saved !== null) {
+        currentIndex = parseInt(saved) || 0;
+    }
+}
+
+// 更新界面显示
+function updateDisplay() {
+    const dynamicArea = document.getElementById('dynamicArea');
+    
+    if (allLocations.length === 0) {
+        dynamicArea.innerHTML = `
+            <div class="recommend-area">
+                <div class="recommend-label">⚠️ 暂无库位数据</div>
+                <div class="recommend-code" style="font-size: 24px;">请联系管理员导入</div>
+            </div>
+        `;
+        document.getElementById('progressText').innerHTML = `0 / 0`;
+        return;
+    }
+    
+    if (currentIndex >= allLocations.length) {
+        // 全部完成
+        dynamicArea.innerHTML = `
+            <div class="complete-area">
+                <div class="complete-icon">🎉</div>
+                <div class="complete-title">恭喜完成！</div>
+                <div class="complete-message">所有库位已完成上架</div>
+                <button class="reset-complete-btn" onclick="resetFromComplete()">重新开始</button>
+            </div>
+        `;
+        document.getElementById('progressText').innerHTML = `${allLocations.length} / ${allLocations.length}`;
+    } else {
+        // 显示当前推荐
+        const current = allLocations[currentIndex];
+        const completed = currentIndex;
+        const remaining = allLocations.length - completed;
+        
+        dynamicArea.innerHTML = `
+            <div class="recommend-area">
+                <div class="recommend-label">🎯 推荐上架库位</div>
+                <div class="recommend-code">${escapeHtml(current.code)}</div>
+                <div class="recommend-priority">优先级 ${current.priority} | 剩余 ${remaining} 个</div>
+            </div>
+        `;
+        document.getElementById('progressText').innerHTML = `${completed} / ${allLocations.length}`;
+    }
+}
+
+// 设置原点位
+function setOrigin() {
+    let inputCode = document.getElementById('originCodeInput').value.trim().toUpperCase();
+    if (!inputCode) {
+        alert('请输入库位码');
+        return;
+    }
+    
+    // 验证库位是否存在
+    const exists = allLocations.find(l => l.code === inputCode);
+    if (!exists) {
+        alert(`库位 "${inputCode}" 不存在，请检查`);
+        return;
+    }
+    
+    originLocation = inputCode;
+    saveOrigin();
+    updateOriginDisplay();
+    
+    // 重新计算当前索引
+    calculateCurrentIndex();
+    updateDisplay();
+    
+    closeOriginModal();
+}
+
+// 清除原点位
+function clearOriginAndReset() {
+    originLocation = null;
+    saveOrigin();
+    updateOriginDisplay();
+    
+    // 重新计算当前索引（从第一个开始）
+    currentIndex = 0;
+    saveProgress();
+    updateDisplay();
+    
+    closeOriginModal();
+}
+
+// 重置整个流程（保留原点位）
+function resetSession() {
+    if (confirm('确定要重新开始吗？当前进度将丢失。')) {
+        if (originLocation) {
+            // 有原点位，从原点位的下一个开始
+            const originIndex = allLocations.findIndex(l => l.code === originLocation);
+            if (originIndex !== -1) {
+                currentIndex = originIndex + 1;
+            } else {
+                currentIndex = 0;
+            }
+        } else {
+            currentIndex = 0;
+        }
+        saveProgress();
+        updateDisplay();
+    }
+}
+
+// 从完成界面重置
+function resetFromComplete() {
+    if (originLocation) {
+        const originIndex = allLocations.findIndex(l => l.code === originLocation);
+        if (originIndex !== -1) {
+            currentIndex = originIndex + 1;
+        } else {
+            currentIndex = 0;
+        }
+    } else {
+        currentIndex = 0;
+    }
+    saveProgress();
+    updateDisplay();
+    closeCompleteModal();
+}
+
+// 弹窗控制
+function showOriginModal() {
+    document.getElementById('originCodeInput').value = '';
+    document.getElementById('originModal').style.display = 'flex';
+}
+
+function closeOriginModal() {
+    document.getElementById('originModal').style.display = 'none';
+}
+
+function showCompleteModal() {
+    document.getElementById('completeMessage').innerHTML = `已完成全部 ${allLocations.length} 个库位的上架！`;
+    document.getElementById('completeModal').style.display = 'flex';
+}
+
+function closeCompleteModal() {
+    document.getElementById('completeModal').style.display = 'none';
+}
+
+// 工具函数
+function updateStats() {
+    document.getElementById('statsText').innerHTML = `📦 ${allLocations.length} 个库位`;
+}
+
+function updateSyncStatus(isOk, msg) {
+    const dot = document.getElementById('syncDot');
+    const text = document.getElementById('syncText');
+    if (isOk) {
+        dot.className = 'sync-dot';
+        text.innerText = msg;
+    } else {
+        dot.className = 'sync-dot error';
+        text.innerText = msg;
+    }
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;');
+}
+
+function addRipple(event) {
+    const touchArea = document.getElementById('touchArea');
+    const rect = touchArea.getBoundingClientRect();
+    let clientX, clientY;
+    
+    if (event.touches) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    } else {
+        clientX = event.clientX;
+        clientY = event.clientY;
+    }
+    
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
+    const ripple = document.createElement('div');
+    ripple.className = 'ripple';
+    ripple.style.left = x + 'px';
+    ripple.style.top = y + 'px';
+    touchArea.appendChild(ripple);
+    
+    setTimeout(() => ripple.remove(), 400);
+}
+
+function showLoading(show) {
+    document.getElementById('loading').style.display = show ? 'flex' : 'none';
+}
+
+// 触摸事件绑定
+function setupTouchArea() {
+    const touchArea = document.getElementById('touchArea');
+    touchArea.addEventListener('click', (e) => {
+        // 防止点击弹窗内按钮时触发
+        if (e.target.closest('.modal-content')) return;
+        if (e.target.closest('.origin-reset')) return;
+        if (e.target.closest('.reset-complete-btn')) return;
+        confirmAndNext();
+    });
+}
+
+// 恢复进度（启动时调用）
+function restoreAll() {
+    restoreOrigin();
+    const savedIndex = localStorage.getItem('putaway_current_index');
+    if (savedIndex !== null) {
+        currentIndex = parseInt(savedIndex) || 0;
+    } else {
+        calculateCurrentIndex();
+    }
+}
+
+// 启动
+(async function() {
+    setupTouchArea();
+    await initCloud();
+    restoreAll();
+    calculateCurrentIndex();
+    updateDisplay();
+})();
+</script>
+</body>
+</html>
